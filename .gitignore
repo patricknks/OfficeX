@@ -7,3 +7,5 @@ server.json
 *.tsbuildinfo
 __pycache__/
 docs/PRODUCTION.md
+# local AI skills (installed with: npx ui-ux-pro-max-cli init --ai claude)
+.claude/
