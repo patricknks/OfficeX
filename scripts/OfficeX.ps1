@@ -1,10 +1,11 @@
 # OfficeX launcher for Windows.
 #   OfficeX.ps1 toggle   start if stopped; if running, ask whether to open the GUI or stop
-#   OfficeX.ps1 start | stop | status | open
+#   OfficeX.ps1 start | stop | status | open | tray
+#   tray: the icon next to the clock while the server runs (started by start; right-click for open / stop / log)
 # The desktop shortcut made by install.cmd runs "toggle".
 
 param(
-  [ValidateSet('toggle', 'start', 'stop', 'status', 'open')]
+  [ValidateSet('toggle', 'start', 'stop', 'status', 'open', 'tray')]
   [string]$Action = 'toggle'
 )
 
@@ -43,6 +44,11 @@ $Text = @{
     running    = "OfficeX is running.`n{0}`n`nYes: open the app`nNo: stop OfficeX`nCancel: do nothing"
     stopping   = 'Stopping OfficeX. Agents finish their current step first.'
     stopped    = 'OfficeX has stopped.'
+    trayRunning = 'OfficeX is running'
+    trayOpen   = 'Open OfficeX'
+    trayStop   = 'Stop OfficeX'
+    trayLog    = 'Show log'
+    trayHide   = 'Hide this icon'
     notRunning = 'OfficeX is not running.'
     npmFailed  = "Installing or building failed. See {0}"
   }
@@ -138,9 +144,56 @@ function Start-App {
     Show-Box (Msg 'failed' @($tail, $logFile)) 'OK' 'Error' | Out-Null
     exit 1
   }
+  Start-Tray
   Show-Note (Msg 'started' @(Get-Urls))
   Start-Process $LocalUrl
   Close-Note
+}
+
+# ---- persistent tray icon (its own hidden PowerShell process; one per port)
+function Start-Tray {
+  $created = $false
+  $m = New-Object System.Threading.Mutex($false, "Local\OfficeX.tray.$Port", [ref]$created)
+  $free = $m.WaitOne(0)
+  if ($free) { $m.ReleaseMutex() }
+  $m.Dispose()
+  if (-not $free) { return }  # already shown
+  $ps = (Get-Command powershell).Source
+  Start-Process -FilePath $ps -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`" tray" -WindowStyle Hidden | Out-Null
+}
+function Run-Tray {
+  $created = $false
+  $script:TrayMutex = New-Object System.Threading.Mutex($false, "Local\OfficeX.tray.$Port", [ref]$created)
+  if (-not $script:TrayMutex.WaitOne(0)) { exit 0 }
+  $script:TrayIcon = New-Object System.Windows.Forms.NotifyIcon
+  if (Test-Path $IconFile) { $script:TrayIcon.Icon = New-Object System.Drawing.Icon $IconFile } else { $script:TrayIcon.Icon = [System.Drawing.SystemIcons]::Application }
+  $script:TrayIcon.Text = "$AppTitle - $(Msg 'trayRunning')"
+  $menu = New-Object System.Windows.Forms.ContextMenuStrip
+  $title = $menu.Items.Add("$AppTitle  $LocalUrl"); $title.Enabled = $false
+  $menu.Items.Add('-') | Out-Null
+  $menu.Items.Add((Msg 'trayOpen'), $null, { Start-Process $LocalUrl }) | Out-Null
+  $menu.Items.Add((Msg 'trayLog'), $null, { Start-Process (Join-Path $Logs 'server.log') }) | Out-Null
+  $menu.Items.Add('-') | Out-Null
+  $menu.Items.Add((Msg 'trayStop'), $null, {
+    $script:TrayIcon.Visible = $false
+    try { Invoke-RestMethod -Method Post "$ApiBase/api/shutdown" -TimeoutSec 5 | Out-Null } catch { }
+    [System.Windows.Forms.Application]::Exit()
+  }) | Out-Null
+  $menu.Items.Add((Msg 'trayHide'), $null, { $script:TrayIcon.Visible = $false; [System.Windows.Forms.Application]::Exit() }) | Out-Null
+  $script:TrayIcon.ContextMenuStrip = $menu
+  $script:TrayIcon.add_DoubleClick({ Start-Process $LocalUrl })
+  $script:TrayIcon.Visible = $true
+  # leave with the server: gone for two checks in a row, the icon goes too
+  $timer = New-Object System.Windows.Forms.Timer
+  $timer.Interval = 10000
+  $script:TrayMisses = 0
+  $timer.add_Tick({
+    if ((Get-ServerProcess) -or (Test-Health)) { $script:TrayMisses = 0 }
+    else { $script:TrayMisses++; if ($script:TrayMisses -ge 2) { $script:TrayIcon.Visible = $false; [System.Windows.Forms.Application]::Exit() } }
+  })
+  $timer.Start()
+  [System.Windows.Forms.Application]::Run()
+  $script:TrayIcon.Dispose()
 }
 
 function Stop-App {
@@ -158,6 +211,7 @@ function Stop-App {
 }
 
 switch ($Action) {
+  'tray' { Run-Tray }
   'start' { Start-App }
   'stop' { Stop-App }
   'open' { Start-Process $LocalUrl }

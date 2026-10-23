@@ -45,6 +45,8 @@ For a development copy, clone it a second time into another folder and give it a
 - When `password` is set, other devices get a login prompt: **any username**, the password from `server.json`.
 - The shortcut starts the server and opens the GUI; when it is already running it asks *Yes* to open, *No* to stop.
   On stop, working agents get time to finish their current step first.
+- While OfficeX runs, its icon sits next to the clock: double-click opens the GUI, right-click gives open / log / stop.
+  The server itself is a Node process, so Task Manager lists it as "Node.js JavaScript Runtime".
 - Log: `logs\server.log`.
 
 ## Claude account
