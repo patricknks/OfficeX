@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-preview
+preview
+logs
+server.json
+*.tsbuildinfo
+__pycache__/
+docs/PRODUCTION.md

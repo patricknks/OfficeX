@@ -1,0 +1,18 @@
+{
+  "instanceName": "OfficeX",
+  "host": "0.0.0.0",
+  "port": 80,
+  "basePath": "/OfficeX",
+  "password": "",
+  "language": "en",
+  "companyRoot": "",
+  "maxConcurrentTurns": 3,
+  "maxTurnsPerAgentPerHour": 30,
+  "maxHops": 6,
+  "turnTimeoutMinutes": 20,
+  "compactAtTokens": 60000,
+  "telegramPolling": true,
+  "telegramMirrorSecretary": true,
+  "claudePath": "",
+  "python": "python"
+}

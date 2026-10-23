@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|Create",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{PYTHON}} \"$CLAUDE_PROJECT_DIR/{{SYSTEM}}/hooks/log_change.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{PYTHON}} \"$CLAUDE_PROJECT_DIR/{{SYSTEM}}/hooks/log_session.py\""
+          }
+        ]
+      }
+    ]
+  }
+}
