@@ -333,6 +333,7 @@ function Scene({ controls }: { controls: React.RefObject<OrbitControlsImpl> }) {
               key={k}
               id={k}
               color={a.color}
+              role={a.role}
               name={a.name}
               title={a.roleTitle}
               model={a.runModel ? `${MODELS.find((m) => m.id === a.runModel)?.label ?? a.runModel} ▸` : MODELS.find((m) => m.id === a.model)?.label ?? ''}

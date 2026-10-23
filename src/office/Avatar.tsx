@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html, RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
-import type { ShownStatus } from '../types';
+import type { RoleKind, ShownStatus } from '../types';
+import { BodyProps, HeadProps } from './RoleProps';
 import type { LabelMode } from '../store';
 import { CORRIDOR_Z, pathBetween, type RoomRef } from './floorplan';
 
@@ -19,6 +20,7 @@ export interface AvatarTarget {
 interface Props {
   id: string;
   color: string;
+  role: RoleKind;
   name: string;
   title: string;
   model: string;
@@ -37,7 +39,7 @@ const SPEED = 2.8;
 const SLEEPY: ShownStatus[] = ['offline', 'paused', 'team_paused'];
 const GREY = '#8E99A3';
 
-export function Avatar({ id, color, name, title, model, status, statusText, walkingText, activity, target, spawn, labels, selected, onSelect }: Props) {
+export function Avatar({ id, color, role, name, title, model, status, statusText, walkingText, activity, target, spawn, labels, selected, onSelect }: Props) {
   const group = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
   const head = useRef<THREE.Group>(null);
@@ -172,6 +174,13 @@ export function Avatar({ id, color, name, title, model, status, statusText, walk
             <capsuleGeometry args={[0.26, 0.32, 6, 14]} />
             <meshStandardMaterial color={tone} roughness={0.55} />
           </mesh>
+          {[-1, 1].map((s) => (
+            <mesh key={s} position={[s * 0.34, 0.85, 0]} rotation-z={s * 0.15} castShadow>
+              <capsuleGeometry args={[0.06, 0.3, 4, 8]} />
+              <meshStandardMaterial color={tone} roughness={0.55} />
+            </mesh>
+          ))}
+          <BodyProps role={role} color={tone} />
           <group ref={head} position={[0, 1.36, 0]}>
             <RoundedBox args={[0.46, 0.36, 0.38]} radius={0.1} castShadow>
               <meshStandardMaterial color="#F4F6F7" roughness={0.6} />
@@ -193,6 +202,7 @@ export function Avatar({ id, color, name, title, model, status, statusText, walk
               <sphereGeometry args={[0.04, 12, 12]} />
               <meshStandardMaterial color={tone} emissive={tone} emissiveIntensity={sleepy ? 0 : 0.6} />
             </mesh>
+            <HeadProps role={role} color={tone} />
             <group ref={dots} position={[0, 0.1, 0]}>
               {[0, 1, 2].map((i) => (
                 <mesh key={i} position={[Math.cos((i * Math.PI * 2) / 3) * 0.38, 0.12, Math.sin((i * Math.PI * 2) / 3) * 0.38]}>

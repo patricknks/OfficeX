@@ -32,7 +32,21 @@ export const M = {
   screen: std('#2F3B47', 0.4),
   ground: std('#2A3845', 1),
   pillar: std('#E3DACB', 0.8),
-  books: [std('#E58A7A'), std('#7FB2D9'), std('#F2C46D'), std('#9FD3B5'), std('#B9A4E6')],
+  books: [std('#E58A7A'), std('#7FB2D9'), std('#F2C46D'), std('#9FD3B5'), std('#B9A4E6'), std('#F7F4EF')],
+  deskTop: std('#D7B98E', 0.7),
+  deskEdge: std('#A9845F', 0.7),
+  steel: std('#6B7280', 0.4, { metalness: 0.4 }),
+  drawer: std('#F1EDE4', 0.8),
+  keys: std('#E5E7EB', 0.6),
+  mug: std('#FBFAF8', 0.5),
+  coffee: std('#6B4A2B', 0.8),
+  lampShade: new THREE.MeshStandardMaterial({ color: '#F59E0B', roughness: 0.6, emissive: '#F59E0B', emissiveIntensity: 0.25, side: THREE.DoubleSide }),
+  chairDark: std('#26313B', 0.7),
+  cushionA: std('#4C6FCB', 0.95),
+  cushionB: std('#F2C46D', 0.95),
+  cushionC: std('#9FD3B5', 0.95),
+  leaf: std('#15803D', 0.9),
+  soil: std('#B45309', 0.9),
 };
 
 const cache = new Map<string, THREE.MeshStandardMaterial>();
