@@ -422,7 +422,7 @@ export const useStore = create<State>((set, get) => ({
         const k = agentKey(e.teamId, e.agentId);
         const a = s.agents[k];
         if (!a || a.status === 'paused') return;
-        set({ agents: { ...s.agents, [k]: { ...a, status: e.status, activity: e.activity, tool: e.tool } } });
+        set({ agents: { ...s.agents, [k]: { ...a, status: e.status, activity: e.activity, tool: e.tool, runModel: e.runModel } } });
         return;
       }
       case 'agent.usage': {

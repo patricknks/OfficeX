@@ -335,7 +335,7 @@ function Scene({ controls }: { controls: React.RefObject<OrbitControlsImpl> }) {
               color={a.color}
               name={a.name}
               title={a.roleTitle}
-              model={MODELS.find((m) => m.id === a.model)?.label ?? ''}
+              model={a.runModel ? `${MODELS.find((m) => m.id === a.runModel)?.label ?? a.runModel} ▸` : MODELS.find((m) => m.id === a.model)?.label ?? ''}
               status={st}
               statusText={statusText}
               walkingText={t('status.walking')}

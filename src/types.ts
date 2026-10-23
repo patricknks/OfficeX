@@ -68,6 +68,8 @@ export interface Agent {
   status: AgentStatus;
   activity: string; // human-readable current activity
   tool?: ToolName;
+  /** live mode: model of the running turn when the manager picked one for this task (differs from `model`) */
+  runModel?: ModelId;
   reportsTo?: string;
   permissions: Permission[];
   browserMode?: BrowserMode;
@@ -256,7 +258,7 @@ export interface ActivityEvent {
 
 /** Events the backend will push over WebSocket. */
 export type ServerEvent =
-  | { type: 'agent.status'; teamId: string; agentId: string; status: AgentStatus; activity: string; tool?: ToolName }
+  | { type: 'agent.status'; teamId: string; agentId: string; status: AgentStatus; activity: string; tool?: ToolName; runModel?: ModelId }
   | { type: 'agent.usage'; teamId: string; agentId: string; tokensToday: number; turnsThisHour: number }
   | { type: 'team.meeting'; teamId: string; active: boolean }
   | { type: 'message'; message: Message }

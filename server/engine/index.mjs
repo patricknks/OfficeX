@@ -141,6 +141,7 @@ export function createEngine({ cfg, appRoot, port, log }) {
       compactAt: LIM.compactAt,
       compactedAt: a.compactedAt,
       compacting: !!a.compacting,
+      runModel: a.runModel,
       advisorSession: a.advisorSession,
       telegram: a.role === 'secretary' ? { configured: S.telegram.configured, chatId: S.telegram.chatId, notify: S.telegram.notify } : undefined,
     };
@@ -149,8 +150,9 @@ export function createEngine({ cfg, appRoot, port, log }) {
     a.status = status;
     a.activity = text;
     a.tool = tool;
+    if (status === 'idle' || status === 'waiting') a.runModel = undefined; // the task-specific model ends with the turn
     if (a.paused) return;
-    emit({ type: 'agent.status', teamId: a.teamId, agentId: a.id, status, activity: text, tool });
+    emit({ type: 'agent.status', teamId: a.teamId, agentId: a.id, status, activity: text, tool, runModel: a.runModel });
   }
 
   // ---------------------------------------------------------------- rooms
@@ -458,6 +460,7 @@ export function createEngine({ cfg, appRoot, port, log }) {
     const model = MODELS.includes(run.model) ? run.model : a.model || 'claude-sonnet-5-5';
     const effort = EFFORTS.includes(run.effort) ? run.effort : a.effort;
     turn.model = model;
+    a.runModel = model !== (a.model || 'claude-sonnet-5-5') ? model : undefined;
     const args = ['-p', '--output-format', 'stream-json', '--verbose', '--model', model];
     if (help.includes('--effort') && EFFORTS.includes(effort)) args.push('--effort', effort);
     if (model !== (a.model || 'claude-sonnet-5-5') || (effort && effort !== a.effort)) activity(a.teamId, a.id, 'status', L(`This task runs on ${modelLabel(model)}${effort ? `, effort ${effort}` : ''} (set by the manager)`, `Tugas ini memakai ${modelLabel(model)}${effort ? `, effort ${effort}` : ''} (dipilih manajer)`));

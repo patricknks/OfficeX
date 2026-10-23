@@ -389,7 +389,8 @@ export function Sidebar() {
                                   {!['idle', 'paused', 'team_paused', 'offline'].includes(s) && a.activity && <> {a.activity}</>}
                                 </span>
                                 <span className="agent-row__meta">
-                                  {MODELS.find((m) => m.id === a.model)?.label}, {tokens(a.tokensToday)}
+                                  {MODELS.find((m) => m.id === (a.runModel ?? a.model))?.label}
+                                  {a.runModel ? ' ▸' : ''}, {tokens(a.tokensToday)}
                                 </span>
                               </span>
                             </button>
