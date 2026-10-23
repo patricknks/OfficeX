@@ -8,7 +8,7 @@
   "companyRoot": "",
   "maxConcurrentTurns": 3,
   "maxTurnsPerAgentPerHour": 30,
-  "maxHops": 6,
+  "maxHops": 24,
   "turnTimeoutMinutes": 20,
   "compactAtTokens": 60000,
   "telegramPolling": true,

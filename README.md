@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/banner.png" alt="OfficeX" width="720"></p>
+
 # OfficeX
 
 A 3D office for a team of Claude Code agents. The owner (you) talks to managers, managers hand work to their agents,
@@ -117,7 +119,7 @@ COMPANY_XXX\
 - **Advisor from an existing Claude Code session**: the first turn uses `--resume <id> --fork-session`, so your
   original session is untouched.
 - **Token guards**: a tool message wakes the receiver; an answer wakes the asker once; an answer to an answer wakes
-  nobody. Plus a chain limit (`maxHops`), turns per agent per hour (`maxTurnsPerAgentPerHour`) and parallel turns
+  nobody. Plus a chain limit (`maxHops`, default 24 agent-to-agent steps; after that the next messages are kept on hold and the owner is asked to reply before the team goes on), turns per agent per hour (`maxTurnsPerAgentPerHour`) and parallel turns
   (`maxConcurrentTurns`) in `server.json`. Pause a team or an agent any time; its queue is kept and resumes later.
 
 ## Saving tokens: agent memory

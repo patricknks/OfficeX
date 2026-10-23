@@ -36,7 +36,7 @@ export function createEngine({ cfg, appRoot, port, log }) {
   const LIM = {
     concurrent: Number(cfg.maxConcurrentTurns ?? 3),
     perHour: Number(cfg.maxTurnsPerAgentPerHour ?? 30),
-    hops: Number(cfg.maxHops ?? 6),
+    hops: Number(cfg.maxHops ?? 24),
     timeoutMs: Number(cfg.turnTimeoutMinutes ?? 20) * 60_000,
     toolTurns: Number(cfg.maxToolTurns ?? 60),
     // compact an agent's conversation once it is this big (tokens); 0 = only Claude Code's own auto-compact
@@ -243,11 +243,16 @@ export function createEngine({ cfg, appRoot, port, log }) {
   function wake(agentKey, msg, { hop = 0, kind = 'ask', from, run } = {}) {
     const a = S.agents.get(agentKey);
     if (!a) return false;
+    a.pending = a.pending ?? [];
     if (hop > LIM.hops) {
-      activity(a.teamId, a.id, 'status', L(`chain limit reached, not woken (${hop} hops)`, `batas rantai tercapai, tidak dibangunkan (${hop} lompatan)`));
+      // a long agent-to-agent chain: keep the message, but wait for a word from the owner before going on
+      // (guards against runaway loops without losing work)
+      a.pending.push({ roomId: msg.roomId, msgId: msg.id, hop: 0, kind, from: from ?? msg.from, at: Date.now(), held: true, ...(run ? { run } : {}) });
+      savePending(a);
+      activity(a.teamId, a.id, 'status', L(`chain limit (${LIM.hops} steps): message kept, waiting for the owner`, `batas rantai (${LIM.hops} langkah): pesan disimpan, menunggu owner`));
+      chainNotice(a.teamId);
       return false;
     }
-    a.pending = a.pending ?? [];
     a.pending.push({ roomId: msg.roomId, msgId: msg.id, hop, kind, from: from ?? msg.from, at: Date.now(), ...(run ? { run } : {}) });
     savePending(a);
     if (kind === 'ask' && from === 'ceo') {
@@ -257,6 +262,35 @@ export function createEngine({ cfg, appRoot, port, log }) {
     pumpSoon();
     return true;
   }
+  const chainNoticed = new Map(); // teamId -> time of the last notice
+  function chainNotice(teamId) {
+    const last = chainNoticed.get(teamId) ?? 0;
+    if (Date.now() - last < 10 * 60_000) return;
+    chainNoticed.set(teamId, Date.now());
+    const mgr = managerOf(teamId);
+    const team = teamOf(teamId);
+    if (!mgr || !team) return;
+    const text = L(
+      `The team has been passing work between agents for ${LIM.hops} steps without you. Their next messages are kept on hold so nothing runs away. Reply anything here (e.g. "continue") to let them carry on, or give new directions.`,
+      `Tim sudah saling mengoper pekerjaan ${LIM.hops} langkah tanpa kamu. Pesan berikutnya disimpan dulu supaya tidak berjalan tanpa kendali. Balas apa saja di sini (mis. "lanjut") supaya mereka melanjutkan, atau beri arahan baru.`,
+    );
+    post(`${teamId}__ceo__${mgr.id}`, 'system', text);
+    relayToOwner(`${L('Needs your input', 'Butuh masukanmu')} — ${team.name}:\n\n${text}`, { reason: 'input' });
+  }
+  /** The owner spoke to this team: held messages go on, the chain starts again at 0. */
+  function releaseHeld(teamId) {
+    let any = false;
+    for (const a of agentsOf(teamId)) {
+      if (!a.pending?.some((i) => i.held)) continue;
+      a.pending = a.pending.map((i) => (i.held ? { ...i, held: false, hop: 0 } : i));
+      savePending(a);
+      any = true;
+    }
+    if (any) {
+      chainNoticed.delete(teamId);
+      pumpSoon();
+    }
+  }
   let pumpTimer = null;
   function pumpSoon() {
     clearTimeout(pumpTimer);
@@ -265,8 +299,8 @@ export function createEngine({ cfg, appRoot, port, log }) {
   function pump() {
     if (S.claude.state !== 'connected') return;
     const ready = [...S.agents.values()]
-      .filter((a) => a.pending?.length && !running.has(key(a)) && !a.paused && !(a.teamId !== OFFICE && teamOf(a.teamId)?.paused))
-      .sort((x, y) => x.pending[0].at - y.pending[0].at);
+      .filter((a) => a.pending?.some((i) => !i.held) && !running.has(key(a)) && !a.paused && !(a.teamId !== OFFICE && teamOf(a.teamId)?.paused))
+      .sort((x, y) => x.pending.find((i) => !i.held).at - y.pending.find((i) => !i.held).at);
     for (const a of ready) {
       if (running.size >= LIM.concurrent) break;
       if (turnsThisHour(a) >= LIM.perHour) {
@@ -278,7 +312,7 @@ export function createEngine({ cfg, appRoot, port, log }) {
     // compaction waits until the agent has nothing else to do, and takes a turn slot like any turn
     for (const a of S.agents.values()) {
       if (running.size >= LIM.concurrent) break;
-      if (a.needsCompact && a.started && !a.paused && !a.pending?.length && !running.has(key(a))) startCompact(a);
+      if (a.needsCompact && a.started && !a.paused && !a.pending?.some((i) => !i.held) && !running.has(key(a))) startCompact(a);
     }
   }
 
@@ -433,9 +467,9 @@ export function createEngine({ cfg, appRoot, port, log }) {
   const modelLabel = (m) => ({ 'claude-fable-5-1': 'Fable 5.1', 'claude-opus-5-5': 'Opus 5.5', 'claude-sonnet-5-5': 'Sonnet 5.5', 'claude-haiku-5-5': 'Haiku 5.5' })[m] ?? m;
   function startTurn(a, retry = false) {
     const k = key(a);
-    const roomId = a.pending[0].roomId;
-    const items = a.pending.filter((i) => i.roomId === roomId);
-    a.pending = a.pending.filter((i) => i.roomId !== roomId);
+    const roomId = a.pending.find((i) => !i.held).roomId;
+    const items = a.pending.filter((i) => i.roomId === roomId && !i.held);
+    a.pending = a.pending.filter((i) => i.roomId !== roomId || i.held);
     savePending(a);
     const room = roomById(roomId);
     if (!room) return pumpSoon();
@@ -970,7 +1004,7 @@ export function createEngine({ cfg, appRoot, port, log }) {
         return ok(
           woke
             ? L(`Sent to ${target.name}. Their answer comes back to you as a new turn; you do not need to wait in this turn.`, `Terkirim ke ${target.name}. Jawabannya datang sebagai giliran baru; tidak perlu menunggu di giliran ini.`)
-            : L(`Posted to ${target.name}, but the conversation chain limit is reached, so they were not woken. Report to the owner instead.`, `Terkirim ke ${target.name}, tapi batas rantai percakapan tercapai sehingga dia tidak dibangunkan. Laporkan ke owner saja.`),
+            : L(`Posted to ${target.name} and kept on hold: the team has exchanged ${LIM.hops} messages without the owner. The owner has been asked; ${target.name} continues as soon as the owner replies in your chat. Do not resend.`, `Terkirim ke ${target.name} dan ditahan dulu: tim sudah bertukar ${LIM.hops} pesan tanpa owner. Owner sudah diberi tahu; ${target.name} lanjut begitu owner membalas di chatmu. Jangan kirim ulang.`),
         );
       }
       case 'list_team': {
@@ -1021,7 +1055,7 @@ export function createEngine({ cfg, appRoot, port, log }) {
             ? L(`${team.name} is paused; ${m.name} answers when the owner resumes the team.`, `${team.name} sedang dijeda; ${m.name} menjawab saat owner melanjutkan tim itu.`)
             : woke
               ? L(`Asked ${m.name} (${team.name}). The answer comes back to you as a new turn.`, `Sudah ditanyakan ke ${m.name} (${team.name}). Jawabannya datang sebagai giliran baru.`)
-              : L('Posted, but the chain limit is reached.', 'Terkirim, tapi batas rantai tercapai.'),
+              : L('Posted and kept on hold until the owner replies (chain limit).', 'Terkirim dan ditahan sampai owner membalas (batas rantai).'),
         );
       }
       case 'send_to_secretary': {
@@ -1461,6 +1495,7 @@ export function createEngine({ cfg, appRoot, port, log }) {
     else if (room.kind === 'team') targets = [managerOf(room.teamId), ...agentsOf(room.teamId).filter((x) => new RegExp(`@${x.name}\\b`, 'i').test(text))];
     else targets = room.members.filter((m) => m !== 'ceo').map((m) => S.agents.get(memberKey(room, m)));
     for (const t of new Set(targets.filter(Boolean))) wake(key(t), msg, { hop: 0, kind: 'ask', from: 'ceo' });
+    if (room.teamId !== OFFICE) releaseHeld(room.teamId);
     return msg;
   }
 

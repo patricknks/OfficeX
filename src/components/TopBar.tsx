@@ -25,8 +25,11 @@ export function TopBar() {
       </div>
 
       <button className={`conn conn--${claude.state}`} onClick={() => openConnect(true)}>
-        <span className="conn__dot" aria-hidden />
+        <svg className="conn__spark" viewBox="0 0 16 16" aria-hidden>
+          <path d="M8 1.5l1.6 4.3 4.3 1.6-4.3 1.6L8 13.3 6.4 9 2.1 7.4l4.3-1.6z" />
+        </svg>
         {claude.state === 'connected' ? t('claude.connected') : claude.state === 'connecting' ? t('claude.connecting') : t('claude.connect')}
+        <span className="conn__dot" aria-hidden />
       </button>
 
       <UsageMeter />
